@@ -1,7 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
-const Blog = require("./services/blog");
+const Blog = require("../services/blog");
 const blog = new Blog("./storage/blogPosts.json");
 
 const router = express.Router();
@@ -133,4 +133,4 @@ router.route("/").get(getAllPosts).post(createPost);
 router.route("/:token").get(getPostByToken).put(updatePostByToken).delete(deletePostByToken);
 router.route("/:token/comments").post(addCommentToPost);
 
-module.exports =  router ;
+module.exports = router ;

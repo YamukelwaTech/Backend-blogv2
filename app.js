@@ -1,8 +1,11 @@
+// app.js
 const express = require("express");
 const cors = require("cors");
 const sslRedirect = require("express-sslify");
-const { postsRoutes } = require("./routes");
+const { postsRoutes } = require("./routes/posts");
 const errorHandler = require("./middlewares/errorHandler");
+
+console.log("postsRoutes:", postsRoutes);
 
 const app = express();
 

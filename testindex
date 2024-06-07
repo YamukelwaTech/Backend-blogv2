@@ -1,0 +1,3 @@
+// testIndex.js
+// const { postsRoutes } = require('./routes/posts');
+// console.log('postsRoutes:', postsRoutes);
