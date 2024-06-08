@@ -60,10 +60,14 @@ class Blog {
 
     if (postToDelete) {
       if (postToDelete.imageURL) {
-        await fs.unlink(path.join(__dirname, '..', postToDelete.imageURL)).catch(() => {});
+        await fs
+          .unlink(path.join(__dirname, "..", postToDelete.imageURL))
+          .catch(() => {});
       }
       if (postToDelete.backgroundimg) {
-        await fs.unlink(path.join(__dirname, '..', postToDelete.backgroundimg)).catch(() => {});
+        await fs
+          .unlink(path.join(__dirname, "..", postToDelete.backgroundimg))
+          .catch(() => {});
       }
 
       const updatedPosts = posts.filter((post) => post.token !== token);
