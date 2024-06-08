@@ -1,5 +1,6 @@
 const fs = require("fs").promises;
 const { v4: uuidv4 } = require("uuid");
+const path = require("path");
 
 class Blog {
   constructor(filePath) {
@@ -55,8 +56,19 @@ class Blog {
 
   async deletePostByToken(token) {
     const posts = await this.readPostsFromFile();
-    const updatedPosts = posts.filter((post) => post.token !== token);
-    await this.writePostsToFile(updatedPosts);
+    const postToDelete = posts.find((post) => post.token === token);
+
+    if (postToDelete) {
+      if (postToDelete.imageURL) {
+        await fs.unlink(path.join(__dirname, '..', postToDelete.imageURL)).catch(() => {});
+      }
+      if (postToDelete.backgroundimg) {
+        await fs.unlink(path.join(__dirname, '..', postToDelete.backgroundimg)).catch(() => {});
+      }
+
+      const updatedPosts = posts.filter((post) => post.token !== token);
+      await this.writePostsToFile(updatedPosts);
+    }
   }
 
   async addCommentToPost(token, comment) {
