@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
 const Blog = require("../services/blog");
-const blog = new Blog("./storage/blogPosts.json");
+const blog = new Blog();
 
 const router = express.Router();
 
@@ -78,7 +78,11 @@ const createPost = async (req, res, next) => {
       const postData = {
         ...req.body,
         imageURL: `/assets/faces/${req.files.imageURL[0].filename}`,
-        backgroundimg: `/assets/${req.files.backgroundimg[0].filename}`
+        backgroundimg: `/assets/${req.files.backgroundimg[0].filename}`,
+        author: {
+          name: req.body.authorName,
+          email: req.body.authorEmail
+        }
       };
 
       const createdPost = await blog.createPost(postData);
@@ -133,4 +137,4 @@ router.route("/").get(getAllPosts).post(createPost);
 router.route("/:token").get(getPostByToken).put(updatePostByToken).delete(deletePostByToken);
 router.route("/:token/comments").post(addCommentToPost);
 
-module.exports = router ;
+module.exports = router;
