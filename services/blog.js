@@ -1,5 +1,6 @@
 const mysql = require("mysql2/promise");
 const { v4: uuidv4 } = require("uuid");
+const { format } = require("date-fns");
 require("dotenv").config();
 
 class Blog {
@@ -85,18 +86,10 @@ class Blog {
 
   async createPost(postData) {
     const token = uuidv4();
-    const { title, description, content, imageURL, backgroundimg, author } =
-      postData;
+    const { title, description, content, imageURL, backgroundimg, author } = postData;
 
     // Validate required fields
-    if (
-      !title ||
-      !description ||
-      !content ||
-      !author ||
-      !author.name ||
-      !author.email
-    ) {
+    if (!title || !description || !content || !author || !author.name || !author.email) {
       console.error("Missing required fields:", {
         title,
         description,
@@ -132,18 +125,10 @@ class Blog {
   }
 
   async updatePostByToken(token, postData) {
-    const { title, description, content, imageURL, backgroundimg, author } =
-      postData;
+    const { title, description, content, imageURL, backgroundimg, author } = postData;
 
     // Validate required fields
-    if (
-      !title ||
-      !description ||
-      !content ||
-      !author ||
-      !author.name ||
-      !author.email
-    ) {
+    if (!title || !description || !content || !author || !author.name || !author.email) {
       throw new Error("Missing required fields");
     }
 
@@ -170,51 +155,52 @@ class Blog {
       connection.release();
     }
   }
+
   async deletePostByToken(token) {
     const connection = await this.pool.getConnection();
     try {
-        await connection.beginTransaction();
+      await connection.beginTransaction();
 
-        // Check if the author exists
-        const [authorRows] = await connection.execute(
-            "SELECT token FROM author WHERE token = ?",
-            [token]
+      // Check if the author exists
+      const [authorRows] = await connection.execute(
+        "SELECT token FROM author WHERE token = ?",
+        [token]
+      );
+      const authorExists = authorRows.length > 0;
+
+      if (authorExists) {
+        // Check if the author has other posts
+        const [otherPostsRows] = await connection.execute(
+          "SELECT token FROM blog WHERE token != ? AND token IN (SELECT token FROM author WHERE token = ?)",
+          [token, token]
         );
-        const authorExists = authorRows.length > 0;
+        const otherPostsExist = otherPostsRows.length > 0;
 
-        if (authorExists) {
-            // Check if the author has other posts
-            const [otherPostsRows] = await connection.execute(
-                "SELECT token FROM blog WHERE token != ? AND token IN (SELECT token FROM author WHERE token = ?)",
-                [token, token]
-            );
-            const otherPostsExist = otherPostsRows.length > 0;
-
-            if (otherPostsExist) {
-                // If the author has other posts, nullify the token in the author table
-                await connection.execute(
-                    "UPDATE author SET token = NULL WHERE token = ?",
-                    [token]
-                );
-            } else {
-                // If the author has no other posts, delete the author
-                await connection.execute("DELETE FROM author WHERE token = ?", [
-                    token
-                ]);
-            }
+        if (otherPostsExist) {
+          // If the author has other posts, nullify the token in the author table
+          await connection.execute(
+            "UPDATE author SET token = NULL WHERE token = ?",
+            [token]
+          );
+        } else {
+          // If the author has no other posts, delete the author
+          await connection.execute("DELETE FROM author WHERE token = ?", [
+            token
+          ]);
         }
+      }
 
-        // Delete the blog post
-        await connection.execute("DELETE FROM blog WHERE token = ?", [token]);
+      // Delete the blog post
+      await connection.execute("DELETE FROM blog WHERE token = ?", [token]);
 
-        await connection.commit();
+      await connection.commit();
     } catch (error) {
-        await connection.rollback();
-        throw error;
+      await connection.rollback();
+      throw error;
     } finally {
-        connection.release();
+      connection.release();
     }
-}
+  }
 
   async addCommentToPost(token, comment) {
     const { user, text, timestamp } = comment;
@@ -224,12 +210,16 @@ class Blog {
       throw new Error("Missing required fields");
     }
 
+    // Convert the timestamp to 'YYYY-MM-DD HH:mm:ss' format
+    const formattedTimestamp = format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss');
+
     await this.pool.execute(
       "INSERT INTO comments (token, user, text, timestamp) VALUES (?, ?, ?, ?)",
-      [token, user, text, timestamp]
+      [token, user, text, formattedTimestamp]
     );
-    return comment;
+    return { ...comment, timestamp: formattedTimestamp };
   }
 }
 
 module.exports = Blog;
+
