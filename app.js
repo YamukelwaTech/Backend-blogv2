@@ -5,7 +5,7 @@ const cors = require("cors");
 const { postsRoutes } = require("./routes");
 const errorHandler = require("./middlewares/errorHandler");
 
-console.log("postsRoutes:", postsRoutes);
+// console.log("postsRoutes:", postsRoutes);
 
 const app = express();
 
