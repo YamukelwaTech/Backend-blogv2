@@ -2,7 +2,7 @@ const mysql = require("mysql2/promise");
 const { v4: uuidv4 } = require("uuid");
 const { format } = require("date-fns");
 require("dotenv").config();
-const fs = require('fs').promises;
+const fs = require("fs").promises;
 
 class Blog {
   constructor() {
@@ -13,6 +13,7 @@ class Blog {
       database: process.env.DB_NAME,
       waitForConnections: true,
       connectionLimit: process.env.DB_CONNECTION_LIMIT,
+      port: process.env.DB_PORT || 3306,
       queueLimit: 0,
     });
   }
@@ -55,7 +56,8 @@ class Blog {
 
   async getPostByToken(token) {
     try {
-      const [rows] = await this.pool.execute(`
+      const [rows] = await this.pool.execute(
+        `
         SELECT JSON_OBJECT(
           'token', b.token,
           'title', b.title,
@@ -82,8 +84,12 @@ class Blog {
         FROM blog b
         JOIN author a ON b.token = a.token
         WHERE b.token = ?
-      `, [token]);
-      return rows.length ? JSON.parse(JSON.stringify(rows[0].json_output)) : null;
+      `,
+        [token]
+      );
+      return rows.length
+        ? JSON.parse(JSON.stringify(rows[0].json_output))
+        : null;
     } catch (err) {
       console.error("Error in getPostByToken:", err);
       throw new Error("Failed to fetch post by token");
@@ -92,8 +98,16 @@ class Blog {
 
   async createPost(postData) {
     const token = uuidv4();
-    const { title, description, content, imageURL, backgroundimg, author } = postData;
-    if (!title || !description || !content || !author || !author.name || !author.email) {
+    const { title, description, content, imageURL, backgroundimg, author } =
+      postData;
+    if (
+      !title ||
+      !description ||
+      !content ||
+      !author ||
+      !author.name ||
+      !author.email
+    ) {
       throw new Error("Missing required fields");
     }
     const imageURLSafe = imageURL || null;
@@ -121,8 +135,16 @@ class Blog {
   }
 
   async updatePostByToken(token, postData) {
-    const { title, description, content, imageURL, backgroundimg, author } = postData;
-    if (!title || !description || !content || !author || !author.name || !author.email) {
+    const { title, description, content, imageURL, backgroundimg, author } =
+      postData;
+    if (
+      !title ||
+      !description ||
+      !content ||
+      !author ||
+      !author.name ||
+      !author.email
+    ) {
       throw new Error("Missing required fields");
     }
     const imageURLSafe = imageURL || null;
@@ -160,10 +182,10 @@ class Blog {
       if (postRows.length > 0) {
         const { imageURL, backgroundimg } = postRows[0];
         if (imageURL) {
-          await this.deleteImage(`./assets/faces/${imageURL.split('/').pop()}`);
+          await this.deleteImage(`./assets/faces/${imageURL.split("/").pop()}`);
         }
         if (backgroundimg) {
-          await this.deleteImage(`./assets/${backgroundimg.split('/').pop()}`);
+          await this.deleteImage(`./assets/${backgroundimg.split("/").pop()}`);
         }
       }
       const [authorRows] = await connection.execute(
@@ -183,7 +205,9 @@ class Blog {
             [token]
           );
         } else {
-          await connection.execute("DELETE FROM author WHERE token = ?", [token]);
+          await connection.execute("DELETE FROM author WHERE token = ?", [
+            token,
+          ]);
         }
       }
       await connection.execute("DELETE FROM blog WHERE token = ?", [token]);
@@ -228,10 +252,7 @@ class Blog {
 
   async deleteCommentFromPost(token) {
     try {
-      await this.pool.execute(
-        "DELETE FROM comments WHERE token = ?",
-        [token]
-      );
+      await this.pool.execute("DELETE FROM comments WHERE token = ?", [token]);
     } catch (err) {
       console.error("Error in deleteCommentFromPost:", err);
       throw new Error("Failed to delete comments");
