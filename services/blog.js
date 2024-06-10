@@ -87,12 +87,35 @@ class Blog {
     const token = uuidv4();
     const { title, description, content, imageURL, backgroundimg, author } =
       postData;
+
+    // Validate required fields
+    if (
+      !title ||
+      !description ||
+      !content ||
+      !author ||
+      !author.name ||
+      !author.email
+    ) {
+      console.error("Missing required fields:", {
+        title,
+        description,
+        content,
+        author,
+      });
+      throw new Error("Missing required fields");
+    }
+
+    // Ensure optional fields are not undefined
+    const imageURLSafe = imageURL || null;
+    const backgroundimgSafe = backgroundimg || null;
+
     const connection = await this.pool.getConnection();
     try {
       await connection.beginTransaction();
       await connection.execute(
         "INSERT INTO blog (token, title, description, content, imageURL, backgroundimg) VALUES (?, ?, ?, ?, ?, ?)",
-        [token, title, description, content, imageURL, backgroundimg]
+        [token, title, description, content, imageURLSafe, backgroundimgSafe]
       );
       await connection.execute(
         "INSERT INTO author (token, name, email) VALUES (?, ?, ?)",
@@ -111,12 +134,29 @@ class Blog {
   async updatePostByToken(token, postData) {
     const { title, description, content, imageURL, backgroundimg, author } =
       postData;
+
+    // Validate required fields
+    if (
+      !title ||
+      !description ||
+      !content ||
+      !author ||
+      !author.name ||
+      !author.email
+    ) {
+      throw new Error("Missing required fields");
+    }
+
+    // Ensure optional fields are not undefined
+    const imageURLSafe = imageURL || null;
+    const backgroundimgSafe = backgroundimg || null;
+
     const connection = await this.pool.getConnection();
     try {
       await connection.beginTransaction();
       await connection.execute(
         "UPDATE blog SET title = ?, description = ?, content = ?, imageURL = ?, backgroundimg = ? WHERE token = ?",
-        [title, description, content, imageURL, backgroundimg, token]
+        [title, description, content, imageURLSafe, backgroundimgSafe, token]
       );
       await connection.execute(
         "UPDATE author SET name = ?, email = ? WHERE token = ?",
@@ -148,6 +188,12 @@ class Blog {
 
   async addCommentToPost(token, comment) {
     const { user, text, timestamp } = comment;
+
+    // Validate required fields
+    if (!user || !text || !timestamp) {
+      throw new Error("Missing required fields");
+    }
+
     await this.pool.execute(
       "INSERT INTO comments (token, user, text, timestamp) VALUES (?, ?, ?, ?)",
       [token, user, text, timestamp]

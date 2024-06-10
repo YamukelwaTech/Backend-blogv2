@@ -63,7 +63,6 @@ const getPostByToken = async (req, res, next) => {
   }
 };
 
-// Handler function to create a new post
 const createPost = async (req, res, next) => {
   try {
     upload.fields([{ name: "imageURL", maxCount: 1 }, { name: "backgroundimg", maxCount: 1 }])(req, res, async (err) => {
@@ -75,13 +74,17 @@ const createPost = async (req, res, next) => {
         return res.status(400).send("Both images are required");
       }
 
+      // Check if authorName and authorEmail are provided, otherwise use dummy data
+      const authorName = req.body.authorName ? req.body.authorName : "Unknown";
+      const authorEmail = req.body.authorEmail ? req.body.authorEmail : "unknown@example.com";
+
       const postData = {
         ...req.body,
         imageURL: `/assets/faces/${req.files.imageURL[0].filename}`,
         backgroundimg: `/assets/${req.files.backgroundimg[0].filename}`,
         author: {
-          name: req.body.authorName,
-          email: req.body.authorEmail
+          name: authorName,
+          email: authorEmail
         }
       };
 
@@ -92,6 +95,7 @@ const createPost = async (req, res, next) => {
     next(err);
   }
 };
+
 
 // Handler function to update a post by its token
 const updatePostByToken = async (req, res, next) => {
