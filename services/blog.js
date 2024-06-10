@@ -1,89 +1,221 @@
-const fs = require("fs").promises;
+const mysql = require("mysql2/promise");
 const { v4: uuidv4 } = require("uuid");
-const path = require("path");
+const { format } = require("date-fns");
+require("dotenv").config();
+const fs = require('fs').promises;
 
 class Blog {
-  constructor(filePath) {
-    this.filePath = filePath;
-  }
-
-  async readPostsFromFile() {
-    const data = await fs.readFile(this.filePath, "utf8");
-    return JSON.parse(data);
-  }
-
-  async writePostsToFile(posts) {
-    await fs.writeFile(this.filePath, JSON.stringify(posts, null, 2), "utf8");
+  constructor() {
+    this.pool = mysql.createPool({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      waitForConnections: true,
+      connectionLimit: process.env.DB_CONNECTION_LIMIT,
+      queueLimit: 0,
+    });
   }
 
   async getAllPosts() {
-    return await this.readPostsFromFile();
+    const [rows] = await this.pool.execute(`
+      SELECT JSON_OBJECT(
+        'token', b.token,
+        'title', b.title,
+        'description', b.description,
+        'content', b.content,
+        'author', JSON_OBJECT(
+            'name', a.name,
+            'email', a.email
+        ),
+        'imageURL', b.imageURL,
+        'backgroundimg', b.backgroundimg,
+        'comments', (
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'user', c.user,
+                    'text', c.text,
+                    'timestamp', DATE_FORMAT(c.timestamp, '%Y-%m-%dT%T.%fZ')
+                )
+            )
+            FROM comments c
+            WHERE c.token = b.token
+        )
+      ) AS json_output
+      FROM blog b
+      JOIN author a ON b.token = a.token
+    `);
+    return rows.map((row) => JSON.parse(JSON.stringify(row.json_output)));
   }
 
   async getPostByToken(token) {
-    const posts = await this.readPostsFromFile();
-    return posts.find((post) => post.token === token);
-  }
-
-  async createPost(post) {
-    const token = uuidv4();
-    post.token = token;
-
-    post.title = post.title || "Default Title";
-    post.description = post.description || "Default Description";
-    post.content = post.content || "Default Content";
-    post.author = post.author || {
-      name: "Unknown",
-      email: "unknown@example.com",
-    };
-    post.imageURL = post.imageURL || null;
-    post.backgroundimg = post.backgroundimg || null;
-    post.comments = post.comments || [];
-
-    const posts = await this.readPostsFromFile();
-    posts.push(post);
-    await this.writePostsToFile(posts);
-    return post;
-  }
-
-  async updatePostByToken(token, updatedPostData) {
-    const posts = await this.readPostsFromFile();
-    const updatedPosts = posts.map((post) =>
-      post.token === token ? { ...post, ...updatedPostData } : post
+    const [rows] = await this.pool.execute(
+      `
+      SELECT JSON_OBJECT(
+        'token', b.token,
+        'title', b.title,
+        'description', b.description,
+        'content', b.content,
+        'author', JSON_OBJECT(
+            'name', a.name,
+            'email', a.email
+        ),
+        'imageURL', b.imageURL,
+        'backgroundimg', b.backgroundimg,
+        'comments', (
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'user', c.user,
+                    'text', c.text,
+                    'timestamp', DATE_FORMAT(c.timestamp, '%Y-%m-%dT%T.%fZ')
+                )
+            )
+            FROM comments c
+            WHERE c.token = b.token
+        )
+      ) AS json_output
+      FROM blog b
+      JOIN author a ON b.token = a.token
+      WHERE b.token = ?
+    `,
+      [token]
     );
-    await this.writePostsToFile(updatedPosts);
+    return rows.length ? JSON.parse(JSON.stringify(rows[0].json_output)) : null;
+  }
+
+  async createPost(postData) {
+    const token = uuidv4();
+    const { title, description, content, imageURL, backgroundimg, author } = postData;
+    if (!title || !description || !content || !author || !author.name || !author.email) {
+      throw new Error("Missing required fields");
+    }
+    const imageURLSafe = imageURL || null;
+    const backgroundimgSafe = backgroundimg || null;
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      await connection.execute(
+        "INSERT INTO blog (token, title, description, content, imageURL, backgroundimg) VALUES (?, ?, ?, ?, ?, ?)",
+        [token, title, description, content, imageURLSafe, backgroundimgSafe]
+      );
+      await connection.execute(
+        "INSERT INTO author (token, name, email) VALUES (?, ?, ?)",
+        [token, author.name, author.email]
+      );
+      await connection.commit();
+      return { token, ...postData };
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async updatePostByToken(token, postData) {
+    const { title, description, content, imageURL, backgroundimg, author } = postData;
+    if (!title || !description || !content || !author || !author.name || !author.email) {
+      throw new Error("Missing required fields");
+    }
+    const imageURLSafe = imageURL || null;
+    const backgroundimgSafe = backgroundimg || null;
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      await connection.execute(
+        "UPDATE blog SET title = ?, description = ?, content = ?, imageURL = ?, backgroundimg = ? WHERE token = ?",
+        [title, description, content, imageURLSafe, backgroundimgSafe, token]
+      );
+      await connection.execute(
+        "UPDATE author SET name = ?, email = ? WHERE token = ?",
+        [author.name, author.email, token]
+      );
+      await connection.commit();
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
   }
 
   async deletePostByToken(token) {
-    const posts = await this.readPostsFromFile();
-    const postToDelete = posts.find((post) => post.token === token);
-
-    if (postToDelete) {
-      if (postToDelete.imageURL) {
-        await fs
-          .unlink(path.join(__dirname, "..", postToDelete.imageURL))
-          .catch(() => {});
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      await this.deleteCommentFromPost(token);
+      const [postRows] = await connection.execute(
+        "SELECT imageURL, backgroundimg FROM blog WHERE token = ?",
+        [token]
+      );
+      if (postRows.length > 0) {
+        const { imageURL, backgroundimg } = postRows[0];
+        if (imageURL) {
+          await this.deleteImage(`./assets/faces/${imageURL.split('/').pop()}`);
+        }
+        if (backgroundimg) {
+          await this.deleteImage(`./assets/${backgroundimg.split('/').pop()}`);
+        }
       }
-      if (postToDelete.backgroundimg) {
-        await fs
-          .unlink(path.join(__dirname, "..", postToDelete.backgroundimg))
-          .catch(() => {});
+      const [authorRows] = await connection.execute(
+        "SELECT token FROM author WHERE token = ?",
+        [token]
+      );
+      const authorExists = authorRows.length > 0;
+      if (authorExists) {
+        const [otherPostsRows] = await connection.execute(
+          "SELECT token FROM blog WHERE token != ? AND token IN (SELECT token FROM author WHERE token = ?)",
+          [token, token]
+        );
+        const otherPostsExist = otherPostsRows.length > 0;
+        if (otherPostsExist) {
+          await connection.execute(
+            "UPDATE author SET token = NULL WHERE token = ?",
+            [token]
+          );
+        } else {
+          await connection.execute("DELETE FROM author WHERE token = ?", [token]);
+        }
       }
+      await connection.execute("DELETE FROM blog WHERE token = ?", [token]);
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
 
-      const updatedPosts = posts.filter((post) => post.token !== token);
-      await this.writePostsToFile(updatedPosts);
+  async deleteImage(imagePath) {
+    try {
+      await fs.unlink(imagePath);
+    } catch (error) {
+      console.error(`Failed to delete image: ${imagePath}`, error);
     }
   }
 
   async addCommentToPost(token, comment) {
-    const posts = await this.readPostsFromFile();
-    const post = posts.find((post) => post.token === token);
-    if (post) {
-      post.comments.push(comment);
-      await this.writePostsToFile(posts);
-      return comment;
+    const { user, text, timestamp } = comment;
+    if (!user || !text || !timestamp) {
+      throw new Error("Missing required fields");
     }
-    throw new Error("Post not found");
+    const formattedTimestamp = format(
+      new Date(timestamp),
+      "yyyy-MM-dd HH:mm:ss"
+    );
+    await this.pool.execute(
+      "INSERT INTO comments (token, user, text, timestamp) VALUES (?, ?, ?, ?)",
+      [token, user, text, formattedTimestamp]
+    );
+    return { ...comment, timestamp: formattedTimestamp };
+  }
+
+  async deleteCommentFromPost(token) {
+    await this.pool.execute(
+      "DELETE FROM comments WHERE token = ?",
+      [token]
+    );
   }
 }
 
