@@ -18,69 +18,76 @@ class Blog {
   }
 
   async getAllPosts() {
-    const [rows] = await this.pool.execute(`
-      SELECT JSON_OBJECT(
-        'token', b.token,
-        'title', b.title,
-        'description', b.description,
-        'content', b.content,
-        'author', JSON_OBJECT(
-            'name', a.name,
-            'email', a.email
-        ),
-        'imageURL', b.imageURL,
-        'backgroundimg', b.backgroundimg,
-        'comments', (
-            SELECT JSON_ARRAYAGG(
-                JSON_OBJECT(
-                    'user', c.user,
-                    'text', c.text,
-                    'timestamp', DATE_FORMAT(c.timestamp, '%Y-%m-%dT%T.%fZ')
-                )
-            )
-            FROM comments c
-            WHERE c.token = b.token
-        )
-      ) AS json_output
-      FROM blog b
-      JOIN author a ON b.token = a.token
-    `);
-    return rows.map((row) => JSON.parse(JSON.stringify(row.json_output)));
+    try {
+      const [rows] = await this.pool.execute(`
+        SELECT JSON_OBJECT(
+          'token', b.token,
+          'title', b.title,
+          'description', b.description,
+          'content', b.content,
+          'author', JSON_OBJECT(
+              'name', a.name,
+              'email', a.email
+          ),
+          'imageURL', b.imageURL,
+          'backgroundimg', b.backgroundimg,
+          'comments', (
+              SELECT JSON_ARRAYAGG(
+                  JSON_OBJECT(
+                      'user', c.user,
+                      'text', c.text,
+                      'timestamp', DATE_FORMAT(c.timestamp, '%Y-%m-%dT%T.%fZ')
+                  )
+              )
+              FROM comments c
+              WHERE c.token = b.token
+          )
+        ) AS json_output
+        FROM blog b
+        JOIN author a ON b.token = a.token
+      `);
+      return rows.map((row) => JSON.parse(JSON.stringify(row.json_output)));
+    } catch (err) {
+      console.error("Error in getAllPosts:", err);
+      throw new Error("Failed to fetch posts");
+    }
   }
 
   async getPostByToken(token) {
-    const [rows] = await this.pool.execute(
-      `
-      SELECT JSON_OBJECT(
-        'token', b.token,
-        'title', b.title,
-        'description', b.description,
-        'content', b.content,
-        'author', JSON_OBJECT(
-            'name', a.name,
-            'email', a.email
-        ),
-        'imageURL', b.imageURL,
-        'backgroundimg', b.backgroundimg,
-        'comments', (
-            SELECT JSON_ARRAYAGG(
-                JSON_OBJECT(
-                    'user', c.user,
-                    'text', c.text,
-                    'timestamp', DATE_FORMAT(c.timestamp, '%Y-%m-%dT%T.%fZ')
-                )
-            )
-            FROM comments c
-            WHERE c.token = b.token
-        )
-      ) AS json_output
-      FROM blog b
-      JOIN author a ON b.token = a.token
-      WHERE b.token = ?
-    `,
-      [token]
-    );
-    return rows.length ? JSON.parse(JSON.stringify(rows[0].json_output)) : null;
+    try {
+      const [rows] = await this.pool.execute(`
+        SELECT JSON_OBJECT(
+          'token', b.token,
+          'title', b.title,
+          'description', b.description,
+          'content', b.content,
+          'author', JSON_OBJECT(
+              'name', a.name,
+              'email', a.email
+          ),
+          'imageURL', b.imageURL,
+          'backgroundimg', b.backgroundimg,
+          'comments', (
+              SELECT JSON_ARRAYAGG(
+                  JSON_OBJECT(
+                      'user', c.user,
+                      'text', c.text,
+                      'timestamp', DATE_FORMAT(c.timestamp, '%Y-%m-%dT%T.%fZ')
+                  )
+              )
+              FROM comments c
+              WHERE c.token = b.token
+          )
+        ) AS json_output
+        FROM blog b
+        JOIN author a ON b.token = a.token
+        WHERE b.token = ?
+      `, [token]);
+      return rows.length ? JSON.parse(JSON.stringify(rows[0].json_output)) : null;
+    } catch (err) {
+      console.error("Error in getPostByToken:", err);
+      throw new Error("Failed to fetch post by token");
+    }
   }
 
   async createPost(postData) {
@@ -106,7 +113,8 @@ class Blog {
       return { token, ...postData };
     } catch (err) {
       await connection.rollback();
-      throw err;
+      console.error("Error in createPost:", err);
+      throw new Error("Failed to create post");
     } finally {
       connection.release();
     }
@@ -133,7 +141,8 @@ class Blog {
       await connection.commit();
     } catch (err) {
       await connection.rollback();
-      throw err;
+      console.error("Error in updatePostByToken:", err);
+      throw new Error("Failed to update post");
     } finally {
       connection.release();
     }
@@ -181,7 +190,8 @@ class Blog {
       await connection.commit();
     } catch (error) {
       await connection.rollback();
-      throw error;
+      console.error("Error in deletePostByToken:", error);
+      throw new Error("Failed to delete post");
     } finally {
       connection.release();
     }
@@ -204,18 +214,28 @@ class Blog {
       new Date(timestamp),
       "yyyy-MM-dd HH:mm:ss"
     );
-    await this.pool.execute(
-      "INSERT INTO comments (token, user, text, timestamp) VALUES (?, ?, ?, ?)",
-      [token, user, text, formattedTimestamp]
-    );
-    return { ...comment, timestamp: formattedTimestamp };
+    try {
+      await this.pool.execute(
+        "INSERT INTO comments (token, user, text, timestamp) VALUES (?, ?, ?, ?)",
+        [token, user, text, formattedTimestamp]
+      );
+      return { ...comment, timestamp: formattedTimestamp };
+    } catch (err) {
+      console.error("Error in addCommentToPost:", err);
+      throw new Error("Failed to add comment");
+    }
   }
 
   async deleteCommentFromPost(token) {
-    await this.pool.execute(
-      "DELETE FROM comments WHERE token = ?",
-      [token]
-    );
+    try {
+      await this.pool.execute(
+        "DELETE FROM comments WHERE token = ?",
+        [token]
+      );
+    } catch (err) {
+      console.error("Error in deleteCommentFromPost:", err);
+      throw new Error("Failed to delete comments");
+    }
   }
 }
 
