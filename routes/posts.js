@@ -136,9 +136,20 @@ const addCommentToPost = async (req, res, next) => {
   }
 };
 
+const deleteCommentFromPost = async (req, res, next) => {
+  try {
+    const token = req.params.token;
+    await blog.deleteCommentFromPost(token);
+    res.sendStatus(204);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Define routes
 router.route("/").get(getAllPosts).post(createPost);
 router.route("/:token").get(getPostByToken).put(updatePostByToken).delete(deletePostByToken);
 router.route("/:token/comments").post(addCommentToPost);
+router.route("/:token/comments").delete(deleteCommentFromPost);
 
 module.exports = router;

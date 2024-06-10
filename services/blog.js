@@ -2,6 +2,7 @@ const mysql = require("mysql2/promise");
 const { v4: uuidv4 } = require("uuid");
 const { format } = require("date-fns");
 require("dotenv").config();
+const fs = require('fs').promises;
 
 class Blog {
   constructor() {
@@ -44,7 +45,6 @@ class Blog {
       FROM blog b
       JOIN author a ON b.token = a.token
     `);
-    console.log("Raw SQL output for getAllPosts:", rows);
     return rows.map((row) => JSON.parse(JSON.stringify(row.json_output)));
   }
 
@@ -80,29 +80,17 @@ class Blog {
     `,
       [token]
     );
-    console.log("Raw SQL output for getPostByToken:", rows);
     return rows.length ? JSON.parse(JSON.stringify(rows[0].json_output)) : null;
   }
 
   async createPost(postData) {
     const token = uuidv4();
     const { title, description, content, imageURL, backgroundimg, author } = postData;
-
-    // Validate required fields
     if (!title || !description || !content || !author || !author.name || !author.email) {
-      console.error("Missing required fields:", {
-        title,
-        description,
-        content,
-        author,
-      });
       throw new Error("Missing required fields");
     }
-
-    // Ensure optional fields are not undefined
     const imageURLSafe = imageURL || null;
     const backgroundimgSafe = backgroundimg || null;
-
     const connection = await this.pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -126,16 +114,11 @@ class Blog {
 
   async updatePostByToken(token, postData) {
     const { title, description, content, imageURL, backgroundimg, author } = postData;
-
-    // Validate required fields
     if (!title || !description || !content || !author || !author.name || !author.email) {
       throw new Error("Missing required fields");
     }
-
-    // Ensure optional fields are not undefined
     const imageURLSafe = imageURL || null;
     const backgroundimgSafe = backgroundimg || null;
-
     const connection = await this.pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -160,39 +143,41 @@ class Blog {
     const connection = await this.pool.getConnection();
     try {
       await connection.beginTransaction();
-
-      // Check if the author exists
+      await this.deleteCommentFromPost(token);
+      const [postRows] = await connection.execute(
+        "SELECT imageURL, backgroundimg FROM blog WHERE token = ?",
+        [token]
+      );
+      if (postRows.length > 0) {
+        const { imageURL, backgroundimg } = postRows[0];
+        if (imageURL) {
+          await this.deleteImage(`./assets/faces/${imageURL.split('/').pop()}`);
+        }
+        if (backgroundimg) {
+          await this.deleteImage(`./assets/${backgroundimg.split('/').pop()}`);
+        }
+      }
       const [authorRows] = await connection.execute(
         "SELECT token FROM author WHERE token = ?",
         [token]
       );
       const authorExists = authorRows.length > 0;
-
       if (authorExists) {
-        // Check if the author has other posts
         const [otherPostsRows] = await connection.execute(
           "SELECT token FROM blog WHERE token != ? AND token IN (SELECT token FROM author WHERE token = ?)",
           [token, token]
         );
         const otherPostsExist = otherPostsRows.length > 0;
-
         if (otherPostsExist) {
-          // If the author has other posts, nullify the token in the author table
           await connection.execute(
             "UPDATE author SET token = NULL WHERE token = ?",
             [token]
           );
         } else {
-          // If the author has no other posts, delete the author
-          await connection.execute("DELETE FROM author WHERE token = ?", [
-            token
-          ]);
+          await connection.execute("DELETE FROM author WHERE token = ?", [token]);
         }
       }
-
-      // Delete the blog post
       await connection.execute("DELETE FROM blog WHERE token = ?", [token]);
-
       await connection.commit();
     } catch (error) {
       await connection.rollback();
@@ -202,24 +187,36 @@ class Blog {
     }
   }
 
+  async deleteImage(imagePath) {
+    try {
+      await fs.unlink(imagePath);
+    } catch (error) {
+      console.error(`Failed to delete image: ${imagePath}`, error);
+    }
+  }
+
   async addCommentToPost(token, comment) {
     const { user, text, timestamp } = comment;
-
-    // Validate required fields
     if (!user || !text || !timestamp) {
       throw new Error("Missing required fields");
     }
-
-    // Convert the timestamp to 'YYYY-MM-DD HH:mm:ss' format
-    const formattedTimestamp = format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss');
-
+    const formattedTimestamp = format(
+      new Date(timestamp),
+      "yyyy-MM-dd HH:mm:ss"
+    );
     await this.pool.execute(
       "INSERT INTO comments (token, user, text, timestamp) VALUES (?, ?, ?, ?)",
       [token, user, text, formattedTimestamp]
     );
     return { ...comment, timestamp: formattedTimestamp };
   }
+
+  async deleteCommentFromPost(token) {
+    await this.pool.execute(
+      "DELETE FROM comments WHERE token = ?",
+      [token]
+    );
+  }
 }
 
 module.exports = Blog;
-
