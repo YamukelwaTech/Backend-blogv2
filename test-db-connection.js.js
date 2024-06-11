@@ -5,7 +5,7 @@ const testConnection = async () => {
   const pool = mysql.createPool({
     host: "127.0.0.1",
     user: "root",
-    password: process.env.DB_PASSWORD,
+    password: "mango22",
     database: "blog_db",
     waitForConnections: true,
     connectionLimit: 10,
