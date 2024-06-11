@@ -17,6 +17,15 @@ class Blog {
       queueLimit: 0,
     });
   }
+  async testConnection() {
+    try {
+      const connection = await this.pool.getConnection();
+      console.log("Connected to the database successfully!");
+      await connection.release();
+    } catch (err) {
+      console.error("Failed to connect to the database:", err);
+    }
+  }
 
   async getAllPosts() {
     try {
@@ -259,5 +268,8 @@ class Blog {
     }
   }
 }
+
+const blog = new Blog();
+blog.testConnection();
 
 module.exports = Blog;
