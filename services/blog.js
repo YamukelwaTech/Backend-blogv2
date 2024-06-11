@@ -7,10 +7,10 @@ const fs = require("fs").promises;
 class Blog {
   constructor() {
     this.pool = mysql.createPool({
-      host: localhost,
-      user: root,
+      host: "localhost",
+      user: "root",
       password: process.env.DB_PASSWORD,
-      database: blog_db,
+      database: "blog_db",
       waitForConnections: true,
       connectionLimit: 10,
       port: 3306,
