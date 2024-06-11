@@ -3,13 +3,13 @@ require("dotenv").config();
 
 const testConnection = async () => {
   const pool = mysql.createPool({
-    host: "127.0.0.1",
+    host: "localhost",
     user: "root",
     password: "mango22",
     database: "blog_db",
     waitForConnections: true,
     connectionLimit: 10,
-    port: 3306,
+    // port: 10000,
     queueLimit: 0,
   });
 
