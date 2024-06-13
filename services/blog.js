@@ -13,7 +13,6 @@ class Blog {
       database: "blog_db",
       waitForConnections: true,
       connectionLimit: 10,
-      // port: 10000,
       queueLimit: 0,
     });
   }
