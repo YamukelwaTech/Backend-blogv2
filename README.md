@@ -1,10 +1,47 @@
-#### Project:BlogBackEnd
-###### Date Started : 15 May 24
-###### Date Updated : 26 May 24
-###### Deployment : Render
----
-###### Welcome to BlogBackEnd! If you're here, you're checking out the latest update of my project. I've spruced it up with a cool new look, and I can't wait for you to see it! Feel free to explore, and remember, the code is yours to adapt and use however you like. Enjoy! ######
+#### Backend Blogv2
 
-#### Documentation
-###### New readme and files
-###### This is V1 of my backend, post a link to version V2
+###### Date Started: 06/04/2024
+
+###### Last Updated: 06/20/2024
+
+###### Deployment : Render
+
+
+---
+
+###### Tech Stack: NodeJS MySql API Postman
+
+---
+
+##### Welcome to Backend Blogv2! If you're here, you're checking out how to make your backend for your blog much better that it was before and you can rest assured that you come to the right place. Feel free to explore, and remember, the code is yours to adapt and use however you like. Enjoy!
+
+---
+
+
+###### Features:
+
+##### - Improved routes.
+
+##### - Structured system to make naviagting code easir.
+
+##### - MySQL integration.
+
+
+###### Process:
+
+##### - Started with my Backend Blog v1
+
+##### - Made a database in MySQL workbench and connected to it.
+
+##### - Removed local database and moved all storage to database.
+
+##### - Improved routes.
+
+###### Learnings:
+
+##### - Gained a deeper understanding of Nodejs and its uses
+
+##### - Learned how to use MySQL.
+
+##### - Improved skills in NodeJS.
+
